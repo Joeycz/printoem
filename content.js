@@ -1,93 +1,160 @@
 (function() {
-    // 防止脚本被重复注入
-    if (window.hasRun) {
+    // 防止脚本被重复注入和执行
+    if (window.myPrintExtension) {
         return;
     }
-    window.hasRun = true;
 
     let lastHighlightedElement = null;
 
-    // 鼠标悬停事件处理
-    function handleMouseOver(event) {
-        const target = event.target;
+    // --- 核心功能函数 ---
+
+    // 1. 进入选择模式
+    function startSelectionMode() {
+        console.log("Entering selection mode...");
+        document.body.style.cursor = 'crosshair';
+        document.addEventListener('mouseover', handleMouseOver);
+        document.addEventListener('click', handleElementClick, true);
         
-        // 移除上一个高亮元素的样式
+        // 提示用户正在选择
+        const startButton = document.getElementById('my-print-ext-start-btn');
+        if(startButton) {
+            startButton.textContent = '...选择中...';
+            startButton.disabled = true;
+        }
+    }
+
+    // 2. 退出选择模式 (不销毁插件)
+    function stopSelectionMode() {
+        console.log("Exiting selection mode...");
+        document.body.style.cursor = 'default';
+        document.removeEventListener('mouseover', handleMouseOver);
+        document.removeEventListener('click', handleElementClick, true);
+
         if (lastHighlightedElement) {
             lastHighlightedElement.style.outline = '';
         }
 
-        // 高亮当前元素
-        target.style.outline = '2px solid red';
-        lastHighlightedElement = target;
-    }
-
-    // 鼠标点击事件处理
-    function handleClick(event) {
-        // 阻止默认行为（例如，如果点击的是一个链接，阻止它跳转）
-        event.preventDefault();
-        event.stopPropagation();
-
-        const selectedElement = event.target;
-        
-        // 清理工作：移除事件监听和高亮
-        cleanup();
-        
-        // 调用打印函数
-        printElement(selectedElement);
+        const startButton = document.getElementById('my-print-ext-start-btn');
+        if(startButton) {
+            startButton.textContent = '再次选择元素';
+            startButton.disabled = false;
+        }
     }
     
-    // 清理函数
-    function cleanup() {
-        if (lastHighlightedElement) {
-            lastHighlightedElement.style.outline = '';
-        }
-        document.removeEventListener('mouseover', handleMouseOver);
-        document.removeEventListener('click', handleClick, true); // 使用捕获阶段
-        document.body.style.cursor = 'default'; // 恢复鼠标样式
-    }
-
-    // 打印函数 (我们之前版本的功能)
+    // 3. 打印选定的元素
     function printElement(element) {
-        // 1. 收集所有样式
+        console.log("Printing element:", element);
         let allStyles = "";
         const styleSheets = document.querySelectorAll('link[rel="stylesheet"], style');
         styleSheets.forEach(sheet => {
             allStyles += sheet.outerHTML;
         });
 
-        // 2. 获取被选元素的外部HTML
         const printContents = element.outerHTML;
-
-        // 3. 构建包含样式的新页面内容
         const printPageHTML = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Print</title>
-                ${allStyles}
-            </head>
-            <body>
-                ${printContents}
-            </body>
-            </html>`;
+            <!DOCTYPE html><html><head><title>Print</title>${allStyles}</head>
+            <body>${printContents}</body></html>`;
         
-        // 4. 打开一个新窗口并写入内容
         const printWindow = window.open('', '_blank');
         printWindow.document.write(printPageHTML);
         printWindow.document.close();
         
-        // 5. 调用新窗口的打印功能
-        // 使用setTimeout确保内容完全加载后再打印
         setTimeout(() => {
             printWindow.print();
             printWindow.close();
         }, 500);
     }
     
-    // --- 脚本主入口 ---
-    document.body.style.cursor = 'crosshair'; // 改变鼠标样式提示用户选择
-    document.addEventListener('mouseover', handleMouseOver);
-    // 在捕获阶段监听点击事件，确保我们能最先处理它
-    document.addEventListener('click', handleClick, true); 
+    // 4. 彻底关闭和清理插件
+    function destroy() {
+        console.log("Destroying extension instance.");
+        stopSelectionMode(); // 确保监听器被移除
+        const controlBar = document.getElementById('my-print-ext-bar');
+        if (controlBar) {
+            controlBar.remove();
+        }
+        // 重置标志位，以便插件可以再次被注入
+        delete window.myPrintExtension;
+    }
+
+    // --- 事件处理器 ---
+
+    function handleMouseOver(event) {
+        if (lastHighlightedElement) {
+            lastHighlightedElement.style.outline = '';
+        }
+        lastHighlightedElement = event.target;
+        lastHighlightedElement.style.outline = '2px solid #007bff';
+    }
+
+    function handleElementClick(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const selectedElement = event.target;
+        
+        // 关键：打印完成后，只退出选择模式，而不是销毁整个插件
+        stopSelectionMode();
+        printElement(selectedElement);
+    }
+
+    // --- UI 创建 ---
+
+    function createControlBar() {
+        const bar = document.createElement('div');
+        bar.id = 'my-print-ext-bar';
+        bar.innerHTML = `
+            <span style="font-size: 14px; color: white; margin-right: 20px;">打印助手已激活</span>
+            <button id="my-print-ext-start-btn">选择元素进行打印</button>
+            <button id="my-print-ext-close-btn" title="关闭打印助手">×</button>
+        `;
+        
+        // 为控制条添加样式 (CSS-in-JS)
+        Object.assign(bar.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            color: 'white',
+            padding: '10px 15px',
+            borderRadius: '8px',
+            zIndex: '99999999',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '15px',
+            fontFamily: 'sans-serif',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.4)'
+        });
+        
+        document.body.appendChild(bar);
+
+        // 为按钮添加样式和事件
+        const startButton = document.getElementById('my-print-ext-start-btn');
+        const closeButton = document.getElementById('my-print-ext-close-btn');
+        
+        Object.assign(startButton.style, {
+            padding: '5px 10px', cursor: 'pointer', border: '1px solid white', 
+            backgroundColor: '#007bff', color: 'white', borderRadius: '4px'
+        });
+        Object.assign(closeButton.style, {
+            padding: '0', width: '24px', height: '24px', cursor: 'pointer', 
+            border: 'none', backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', 
+            borderRadius: '50%', fontWeight: 'bold', fontSize: '16px', lineHeight: '24px'
+        });
+
+        startButton.addEventListener('click', startSelectionMode);
+        closeButton.addEventListener('click', destroy);
+    }
+
+    // --- 插件初始化 ---
+
+    // 定义一个全局标志位来跟踪插件状态
+    window.myPrintExtension = {
+        start: startSelectionMode,
+        stop: stopSelectionMode,
+        destroy: destroy
+    };
+
+    createControlBar();
 
 })();
