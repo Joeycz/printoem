@@ -13,3 +13,6 @@ print-element-extension/
     ├── icon48.png
     └── icon128.png         (插件的图标，可选但建议有)
 ```
+
+### 参考
+- https://www.modao8.com/shi.php

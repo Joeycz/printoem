@@ -50,6 +50,23 @@
             allStyles += sheet.outerHTML;
         });
 
+        const pinyinStyle = `
+            <style>
+                .page .srow .ge .py span {
+                    color: black !important;
+                }
+                .page .srow .ge .py svg {
+                    display: none !important;
+                }
+                .page .srow .ge .py {
+                    border: none !important;
+                }
+                .page .srow .ge {
+                    border: none !important;
+                }
+            </style>`;
+        allStyles += pinyinStyle;
+
         const printContents = element.outerHTML;
         const printPageHTML = `
             <!DOCTYPE html><html><head><title>Print</title>${allStyles}</head>
@@ -59,10 +76,10 @@
         printWindow.document.write(printPageHTML);
         printWindow.document.close();
         
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
+        // setTimeout(() => {
+        //     printWindow.print();
+        //     printWindow.close();
+        // }, 500);
     }
     
     // 4. 彻底关闭和清理插件
