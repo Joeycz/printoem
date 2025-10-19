@@ -76,10 +76,10 @@
         printWindow.document.write(printPageHTML);
         printWindow.document.close();
         
-        // setTimeout(() => {
-        //     printWindow.print();
-        //     printWindow.close();
-        // }, 500);
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 500);
     }
     
     // 4. 彻底关闭和清理插件
